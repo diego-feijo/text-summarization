@@ -1,0 +1,7 @@
+regex
+scrapy
+textract
+nltk
+numpy
+scipy
+scikit-learn
