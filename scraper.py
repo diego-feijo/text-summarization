@@ -1,10 +1,13 @@
 import re
 import scrapy
+import os
 from scrapy.http import Request
+
 
 class StfSpider(scrapy.Spider):
   name = "stf_spider"
-  start_urls = [ 'http://www.stf.jus.br/portal/jurisprudencia/listarJurisprudencia.asp?s1=%28DIREITO%29&pagina=460&base=baseAcordaos&url=/portal/jurisprudencia/listarJurisprudencia.asp' ]
+  start_urls = [ 'http://www.stf.jus.br/portal/jurisprudencia/listarJurisprudencia.asp?s1=%28DIREITO%29%28%40JULG+%3E%3D+20100101%29&base=baseAcordaos&url=http://tinyurl.com/y7u9x6fx']
+
 
   def parse(self, response):
     for element in response.xpath('//div[@id="divImpressao"]/div'):
@@ -34,7 +37,13 @@ class StfSpider(scrapy.Spider):
 
   def save_pdf(self, response):
     path = '/media/veracrypt1/doutorado/scraper/' + response.url.split('=')[-1] + '.pdf'
-    self.logger.info('Saving %s', path)
-    with open(path, 'wb') as f:
-      f.write(response.body)
+    if os.path.isfile(path) and os.path.getsize(path) > 1000:
+      self.logger.info('File already exists %s', path)
+      return
+    if len(response.body) > 1000:
+      self.logger.info('Saving %s', path)
+      with open(path, 'wb') as f:
+        f.write(response.body)
+    else:
+      self.logger.error('Body too small %s', path)
 

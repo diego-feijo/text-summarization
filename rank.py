@@ -2,88 +2,109 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import os
 import json
 import re
-import operator
-import heapq
+import nltk
+import random
+from heapq import nlargest
 
-DATA_DIR = 'processed/'
-ENCODING = 'utf-8'
+class Sentence:
+    def __init__(self, sentence_id):
+        self.sentence_id = sentence_id
+        self.term_ids = []
+        self.weight = 0.0
 
-
-'''
-Transforms the json doc string to a textual representation
-'''
-
-def json_to_text(doc):
-    obj = json.loads(doc)
-    text = ''
-    for key in obj:
-        if key != 'name':
-            text += ' '.join(obj[key])
-    return text
+    def avg_weight(self):
+        if len(self.term_ids) == 0:
+            return 0
+        else:
+            return self.weight / len(self.term_ids)
 
 
-vectorizer = TfidfVectorizer(preprocessor=json_to_text,
-                             input='filename',
-                             lowercase=False)
-files = [os.path.join(DATA_DIR, f) for f in os.listdir(DATA_DIR) if os.path.isfile(os.path.join(DATA_DIR, f))]
-term_matrix = vectorizer.fit_transform(files)
-
-sentences_document = {}
-sentences_dict = {}
-word_sentences = { }
-sentence_id = -1
+class Document:
+    def __init__(self, doc_id):
+        self.doc_id = doc_id
+        self.sentences = []
 
 ngram = lambda doc: re.compile('(?u)\\b\\w\\w+\\b').findall(doc)
-for doc_id in range(len(files)):
-    with open(files[doc_id], encoding=ENCODING) as file:
-        sentences_per_document = []
-        obj = json.load(file)
+
+class Rank:
+
+    INPUTFILE = '/media/veracrypt1/doutorado/text-summarization/sample.json'
+    ENCODING = 'utf-8'
+
+    def json_to_text(self, doc):
+        obj = json.loads(doc)
+        text = ''
         for key in obj:
-            if key != 'name':
-                sentences = obj[key]
-                for sentence in sentences:
-                    sum_sentence = 0
-                    qtd_words_sentence = 0
-                    sentence = sentence.strip()
-                    if len(sentence) == 0:
-                        continue
-                    sentence_id += 1
-                    sentences_per_document.append(sentence_id)
-                    words = []
-                    for word in ngram(sentence):
-                        term_id = vectorizer.vocabulary_.get(word)
-                        if term_id:
-                            words.append(term_id)
-                            sum_sentence += term_matrix[doc_id,term_id]
-                            qtd_words_sentence += 1
-                    if qtd_words_sentence > 0:
-                        word_sentences[sentence_id] = words
-                        sentences_dict[sentence_id] = sum_sentence / qtd_words_sentence
-                    else:
-                        sentences_dict[sentence_id] = 0
-        sentences_document[doc_id] = sentences_per_document
+            text = text + ' ' + obj[key]
+        return text
+
+    def __init__(self):
+        self.vectorizer = TfidfVectorizer(preprocessor=self.json_to_text,
+                                          input='content',
+                                          lowercase=True)
+        with open(Rank.INPUTFILE, encoding=Rank.ENCODING) as f:
+            content = f.read()
+
+        content = content.replace("}{", "}\n{")
+        content = content.replace("art.", "artigo")
+        content = content.replace("arts.", "artigo")
+        content = content.replace("Min.", "Ministro")
+        content = content.replace("Rel.", "Relator")
+        content = content.replace("fl.", "folha")
+        content = content.replace("fls.", "folhas")
+        content = content.replace("C.F.", "Constituição Federal")
+        content = content.replace("n.", "número")
+        content = content.replace("I.", "I-")
+        content = content.replace("V.", "V-")
+        content = content.replace(" 1.", " 1-")
+        content = content.replace(" 2.", " 2-")
+        content = content.replace(" 3.", " 3-")
+        content = content.replace(" 4.", " 4-")
+        content = content.replace(" 5.", " 5-")
+
+        self.raw_documents = content.splitlines(keepends=False)
+
+        self.term_matrix = self.vectorizer.fit_transform(self.raw_documents)
+        self.documents = []
+        for doc_id, line in enumerate(self.raw_documents):
+            self.documents.append(self.processDocument(Document(doc_id), line))
+
+    def print_top_n(self, n):
+        document = self.documents[random.randint(0, len(self.documents)-1)]
+        sentences = nlargest(n, document.sentences, key=lambda e:e.avg_weight())
+        words = self.vectorizer.get_feature_names()
+        print('Top 10 sentences: [{}] '.format(document.doc_id))
+        sentences.sort(key=lambda x: x.sentence_id)
+        for i, sentence in enumerate(sentences):
+            print('{}. [{}] [{}]'.format(i, sentence.sentence_id, sentence.avg_weight()), end=': ')
+            for word_id in sentence.term_ids:
+                word = words[word_id]
+                print(word, end=' ')
+            print('')
+
+    def processSentence(self, doc_id, sentence, tokens):
+        for word in ngram(tokens):
+            term_id = self.vectorizer.vocabulary_.get(word)
+            if term_id:
+                sentence.term_ids.append(term_id)
+                sentence.weight += self.term_matrix[doc_id, term_id]
+        return sentence
+
+    def processDocument(self, document, text):
+        obj = json.loads(text)
+        for section_name in obj:
+            # Each section is a entire document
+            content = obj[section_name]
+            sentences = nltk.sent_tokenize(content, 'portuguese')
+            for sentence_id, tokens in enumerate(sentences):
+                sentence = self.processSentence(document.doc_id, Sentence(sentence_id), tokens)
+                document.sentences.append(sentence)
+        return document
 
 
-print(vectorizer.vocabulary_)
-
-# top 10
-for doc_id in range(len(files)):
-    sentences = sentences_document[doc_id]
-    scores = {}
-
-    for sentence in sentences:
-        scores[sentence] = sentences_dict[sentence]
-    sorted_x = sorted(scores.items(), key=operator.itemgetter(1))
-    sorted_x.reverse()
-
-    words = vectorizer.get_feature_names()
-    print('Top 10 sentences: [{}] '.format(doc_id))
-    for i in sorted_x[:10]:
-        word_ids = word_sentences[i[0]]
-        print('{}'.format(i), end=': ')
-        for word_id in word_ids:
-            word = words[word_id]
-            print(word, end=' ')
-        word = i[0]
-        print()
-
+if __name__ == '__main__':
+    try:
+        rank = Rank()
+        rank.print_top_n(10)
+    except Exception as e:
+        print('Exception ', e)

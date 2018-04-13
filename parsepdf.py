@@ -1,21 +1,9 @@
-import textract
-import regex
+import json
 import os
+import regex
 import shutil
+import textract
 
-
-def print_match(section, match):
-    if match:
-        print(section, ' : ', match.span())
-    else:
-        print(section, ' : ', 'No match')
-
-def move_not_processed(filename):
-    shutil.move('inteiro-teor/' + filename, 'not-processed/' + filename)
-
-
-erros = 0
-processados = 0
 
 header_pattern1 = regex.compile(r'(^documento pode ser acessado .*?^Inteiro Teor .*?$|^\d*\nDocumento assinado digitalmente conforme.*?$|(^[A-Z]+ \d+ [A-Z]+)* / (AC|AM|AP|RS|SC|PR|RJ|SP|ES|MG|BA|SE|AL|PE|PI|CE|RN|PA|MA|RO|RR|MA|PB|TO|MS|MT|GO|DF)$)', flags=regex.UNICODE | regex.DOTALL | regex.MULTILINE)
 header_pattern2 = regex.compile(r'(^documento pode ser acessado .*?$|^Documento assinado digitalmente conforme.*?$)', flags=regex.UNICODE | regex.DOTALL | regex.MULTILINE)
@@ -28,78 +16,63 @@ relatorio_section = regex.compile(r'(?:^R\s?E\s?L\s?A\s?T\s?Ó\s?R\s?I\s?O:?$)(.
 voto_section = regex.compile(r'(?:^V\s?O\s?T\s?O:?$)(.*^É como voto\.$|.*\n\n(?!PRIMEIRA TURMA|SEGUNDA TURMA|PLENÁRIO)$)', flags=regex.UNICODE | regex.DOTALL | regex.MULTILINE)
 break_lines = regex.compile(r'\n', flags=regex.UNICODE | regex.DOTALL | regex.MULTILINE)
 whitespace = regex.compile(r'\s+')
-for filename in os.listdir('inteiro-teor/'):
+
+PARSED='/media/veracrypt1/doutorado/text-summarization/parsed/'
+FAILED='/media/veracrypt1/doutorado/text-summarization/failed/'
+OUTPUT='/media/veracrypt1/doutorado/text-summarization/output.json'
+SRCDIR='/media/veracrypt1/doutorado/scraper/'
+
+
+def remove_headers(text):
+    text = regex.sub(header_pattern1, '', text)
+    text = regex.sub(header_pattern2, '', text)
+    text = regex.sub(case_number, '', text)
+    return regex.sub(page_number, '', text)
+
+def parse_sections(text):
+    ementa = regex.search(ementa_section, text)
+    if not ementa or len(ementa.group(1)) < 100:
+        raise Exception('Ementa not found')
+    acordao = regex.search(acordao_section, text[ementa.end() - 20:])
+    if not acordao or len(acordao.group(1)) < 100:
+        raise Exception('Acordao not found')
+
+    relatorio = regex.search(relatorio_section, text[ementa.end() + acordao.end() + 100:])
+    if not relatorio or len(relatorio.group(1)) < 100:
+        raise Exception('Relatorio not found')
+
+    voto = regex.search(voto_section, text[relatorio.end() + acordao.end() + ementa.end():])
+    if not voto or len(voto.group(1)) < 100:
+        raise Exception('Voto not found')
+    return {
+        'ementa': strip_whitespaces(ementa.group(1)),
+        'acordao': strip_whitespaces(acordao.group(1)),
+        'relatorio': strip_whitespaces(relatorio.group(1)),
+        'voto': strip_whitespaces(voto.group(1))
+    }
+
+def strip_whitespaces(text):
+    text = break_lines.sub(' ', text)
+    text = whitespace.sub(' ', text)
+    return text.strip()
+
+
+erros = 0
+fout = open(OUTPUT, mode='a')
+files = os.listdir(SRCDIR)
+total = len(files)
+for i, filename in enumerate(files):
     try:
-        text = textract.process('inteiro-teor/' + filename)
-
-        text = regex.sub(header_pattern1, '', text.decode('utf-8'), )
-        text = regex.sub(header_pattern2, '', text)
-
-        text = regex.sub(case_number, '', text)
-        text = regex.sub(page_number, '', text)
-
-        if len(text) > 4000:
-            ementa = regex.search(ementa_section, text)
-            if not ementa:
-                erros += 1
-                print(erros, '/', processados, ' nao achou ementa ', filename)
-                move_not_processed(filename)
-                continue
-
-            acordao = regex.search(acordao_section, text[ementa.end()-20:])
-            if not acordao:
-                erros += 1
-                print(erros, '/', processados, ' nao achou acordao ', filename)
-                move_not_processed(filename)
-                continue
-
-            relatorio = regex.search(relatorio_section, text[ementa.end() + acordao.end() + 100:])
-            if not relatorio:
-                erros += 1
-                print(erros, '/', processados, ' nao achou relatorio ', filename)
-                move_not_processed(filename)
-                continue
-
-            voto = regex.search(voto_section, text[relatorio.end() + acordao.end() + ementa.end():])
-            if not voto:
-                erros += 1
-                print(erros, '/', processados, ' nao achou voto ', filename)
-                move_not_processed(filename)
-                continue
-
-            with open('data/' + filename[:-4] + '-ementa.txt', 'w') as text_file:
-                text = ementa_start.sub('', ementa.group(1))
-                text = break_lines.sub(' ', text)
-                text = whitespace.sub(' ', text)
-                print(text.strip(), file=text_file)
-
-            with open('data/' + filename[:-4] + '-acordao.txt', 'w') as text_file:
-                text = acordao.group(1)
-                text = break_lines.sub(' ', text)
-                text = whitespace.sub(' ', text)
-                print(text.strip(), file=text_file)
-
-            with open('data/' + filename[:-4] + '-relatorio.txt', 'w') as text_file:
-                text = relatorio.group(1)
-                text = break_lines.sub(' ', text)
-                text = whitespace.sub(' ', text)
-                print(text.strip(), file=text_file)
-
-            with open('data/' + filename[:-4] + '-voto.txt', 'w') as text_file:
-                text = voto.group(1)
-                text = break_lines.sub(' ', text)
-                text = whitespace.sub(' ', text)
-                print(text.strip(), file=text_file)
-
-            os.remove('inteiro-teor/' + filename)
-            print('Processado {}'.format(filename))
-            processados += 1
-        else:
-            print('Removing file too small (%d): %s' % (len(text), filename))
-            os.remove('inteiro-teor/' + filename)
+        if i % 100 == 0: print('{}/{} processados. {} erros.'.format(i, total, erros))
+        text = textract.process(os.path.join(SRCDIR,filename)).decode('utf-8', 'ignore')
+        text = remove_headers(text)
+        sections = parse_sections(text)
+        fout.write(json.dumps(sections, ensure_ascii=False) + '\n')
+        shutil.move(os.path.join(SRCDIR, filename), os.path.join(PARSED, filename))
     except Exception as e:
+        print('Exception[{}: {}] {}'.format(i, filename, e))
         erros += 1
-        print("Exception %s [%d/%d]: %s" % (e, erros, processados, filename))
-        move_not_processed(filename)
+        shutil.move(os.path.join(SRCDIR, filename), os.path.join(FAILED, filename))
 
-print('Total de erros/processados: ', erros, '/', processados)
+fout.close()
+print('{}/{} processados. {} erros.'.format(total, total, erros))
