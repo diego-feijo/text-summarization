@@ -5,7 +5,8 @@ import os
 import re
 import shutil
 
-logger = logging.getLogger()
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 DATA_DIR = 'data/'
 PROCESSED_DIR = 'processed/'

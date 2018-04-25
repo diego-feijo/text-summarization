@@ -6,3 +6,7 @@ numpy
 scipy
 scikit-learn
 gensim
+smart_open
+rouge
+matplotlib
+sumy
