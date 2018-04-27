@@ -177,10 +177,10 @@ else:
         else:
             logger.info('Dropping outlier[{:d}]: {:.4f}'.format(i, d))
 
-    for i, lines in enumerate(std_docs):
-        std_docs[i] = ' . '.join([' '.join(line) for line in lines])
-    for i, lines in enumerate(std_sums):
-        std_sums[i] = ' . '.join([' '.join(line) for line in lines])
+    # for i, lines in enumerate(std_docs):
+    #     std_docs[i] = ' . '.join([' '.join(line) for line in lines])
+    # for i, lines in enumerate(std_sums):
+    #     std_sums[i] = ' . '.join([' '.join(line) for line in lines])
     logger.info('Dumping standardized docs')
     with open(base_dir + '/std_docs.dump', mode='ab') as f:
         pickle.dump(std_docs, f)
@@ -192,8 +192,8 @@ if os.path.isfile(base_dir + '/std_sums.dump'):
     with open(base_dir + '/std_sums.dump', mode='rb') as f:
         std_sums = pickle.load(f)
 else:
-    for i, sum in enumerate(std_sums):
-        std_sums[i] = ' '.join(sum)
+    # for i, sum in enumerate(std_sums):
+    #     std_sums[i] = ' '.join(sum)
     logger.info('Dumping standardized summaries')
     with open(base_dir + '/std_sums.dump', mode='ab') as f:
         pickle.dump(std_sums, f)
