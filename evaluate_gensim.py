@@ -2,6 +2,26 @@ import logging
 import os
 import pickle
 
+MIN_SIZE = 50
+GROWTH_SIZE = 10
+
+
+# 37 linhas por pagina
+# 10 palavras por linha
+
+def target_size(words):
+    if words < 1000:
+        return MIN_SIZE
+    elif words < 3000:
+        return MIN_SIZE + 1 * GROWTH_SIZE
+    elif words < 9000:
+        return MIN_SIZE + 2 * GROWTH_SIZE
+    elif words < 18000:
+        return MIN_SIZE + 3 * GROWTH_SIZE
+    else:
+        return MIN_SIZE + 4 * GROWTH_SIZE
+
+
 base_dir = '/media/veracrypt1/doutorado/text-summarization'
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
@@ -32,13 +52,17 @@ else:
     logger.info('Started summarizing docs')
     total = len(std_docs)
     for i, doc in enumerate(std_docs):
-        if i % 100 == 0:
+        text_doc = ' . '.join([' '.join(line) for line in doc])
+
+        if i % 1000 == 0:
             logger.info('Docs summarized [{}/{}]'.format(i, total))
-        summarized_docs.append(summarize(doc, ratio=0.12))
+        summarized_docs.append(summarize(text_doc, word_count=target_size(len(doc))))
     logger.info('Dumping summarized docs')
     with open(base_dir + '/summarized_docs.dump', mode='ab') as f:
         pickle.dump(summarized_docs, f)
 
+for i, sum in enumerate(std_sums):
+    std_sums[i] = ' . '.join([' '.join(line) for line in sum])
 
 hyps, refs = map(list, zip(*[[summarized_docs[i], std_sums[i]] for i in range(len(summarized_docs))]))
 

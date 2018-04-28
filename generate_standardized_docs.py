@@ -5,6 +5,8 @@ import os
 import pickle
 import nltk
 import re
+import numpy as np
+
 
 def clean_text(content):
     content = content.replace("adv.", "adv ")
@@ -30,7 +32,6 @@ def clean_text(content):
     content = re.sub(r'(\s\d)\.', r' \1', content)
     content = re.sub(r'\.\.\.\.+', r'\.', content)
     return content
-
 
 
 base_dir = '/media/veracrypt1/doutorado/text-summarization'
@@ -161,22 +162,60 @@ if os.path.isfile(base_dir + '/std_docs.dump'):
     with open(base_dir + '/std_docs.dump', mode='rb') as f:
         std_docs = pickle.load(f)
 else:
+    # docs: mu=1309 sigma=1167
+    # sums: mu=102   sigma=97
+    ss = []
+    for doc in sums:
+        s = 0
+        for line in doc:
+            s += len(line)
+        ss.append(s)
+    mus = np.mean(ss)
+    sigmas = np.std(ss)
+    print("Sum mu={:.4f} sigma={:.4f}".format(mus, sigmas))
+
+    ds = []
+    for doc in docs:
+        s = 0
+        for line in doc:
+            s += len(line)
+        ds.append(s)
+    mud = np.mean(ds)
+    sigmad = np.std(ds)
+    print("Doc mu={:.4f} sigma={:.4f}".format(mud, sigmad))
+
+
+    ss = []
+    ds = []
+    dropped = 0
     for i in range(len(sums)):
         s = 0
-        l = 0
         for line in sums[i]:
             s += len(line)
 
+        d = 0
         for line in docs[i]:
-            l += len(line)
-        d = s / l
-        if d > 0.02 and d < 0.27:
+            d += len(line)
+        # d = s / l
+        # if d > 0.02 and d < 0.27:
+
+        if d > 300 and d < mud + 3 * sigmad \
+            and s > 19 and s < mus + 3 * sigmas:
             std_docs.append(docs[i])
             std_sums.append(sums[i])
-            sums_dif.append(d)
+            ss.append(s)
+            ds.append(d)
         else:
-            logger.info('Dropping outlier[{:d}]: {:.4f}'.format(i, d))
+            logger.info('Dropping outlier[{}]: d={} s={}'.format(i, d, s))
+            dropped += 1
 
+    print('Dropped total={} pct={:.2f}%:'.format(dropped, dropped / len(sums) * 100))
+    mus = np.mean(ss)
+    sigmas = np.std(ss)
+    print("Sum mu={:.4f} sigma={:.4f}".format(mus, sigmas))
+    mud = np.mean(ds)
+    sigmad = np.std(ds)
+    print("Doc mu={:.4f} sigma={:.4f}".format(mud, sigmad))
     # for i, lines in enumerate(std_docs):
     #     std_docs[i] = ' . '.join([' '.join(line) for line in lines])
     # for i, lines in enumerate(std_sums):

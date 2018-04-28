@@ -1,8 +1,9 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.mlab as mlab
 import pickle
 import os
-import nltk
+import numpy as np
+
 
 base_dir = '/media/veracrypt1/doutorado/text-summarization'
 
@@ -18,26 +19,45 @@ if os.path.isfile(base_dir + '/std_docs.dump') and \
 else:
     exit(1)
 
-x = np.zeros(len(std_docs))
-for i, doc in enumerate(std_sums):
-    x[i] = len(doc.split(' '))
 
+fig = plt.figure(1, figsize=(10, 6))
 
-num_bins = 'auto'
+nbins = np.linspace(0, 2000, 100)
 
-fig, ax = plt.subplots()
+x = []
+for doc in std_docs:
+    words = 0
+    for line in doc:
+        words += len(line)
+    x.append(words)
 
-# the histogram of the data
-n, bins, patches = ax.hist(x, num_bins, density=1)
+n, bins, patches = plt.hist(x, nbins, density=1, alpha=0.5, label='Full content')
+dx = np.std(x)
+mx = np.mean(x)
+print('Full content: mu={:4f} sigma={:4f}'.format(mx, dx))
+# yx = mlab.normpdf(bins, mx, dx)
+# plt.plot(bins, yx, 'r--')
 
-# add a 'best fit' line
-# y = ((1 / (np.sqrt(2 * np.pi) * sigma)) *
-#      np.exp(-0.5 * (1 / sigma * (bins - mu))**2))
-# ax.plot(bins, y, '--')
-ax.set_xlabel('Smarts')
-ax.set_ylabel('Probability density')
-ax.set_title(r'Histogram of IQ: $\mu=100$, $\sigma=15$')
+s = []
+for doc in std_sums:
+    words = 0
+    for line in doc:
+        words += len(line)
+    s.append(words)
+n, bins, patches = plt.hist(s, nbins, density=1, alpha=0.5, label='Summary')
+ds = np.std(s)
+ms = np.mean(s)
+print('Summary: mu={:4f} sigma={:4f}'.format(ms, ds))
+ys = mlab.normpdf(bins, ms, ds)
+plt.plot(bins, ys, 'g--')
+
+# plt.subplots_adjust(left=0.15)
+
+plt.xlabel('Document Length (Tokens)')
+plt.ylabel('Frequency')
 
 # Tweak spacing to prevent clipping of ylabel
-fig.tight_layout()
-plt.show()
+plt.tight_layout()
+# plt.show()
+plt.savefig('histogram.svg')
+
