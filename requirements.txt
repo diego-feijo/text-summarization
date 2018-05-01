@@ -10,3 +10,4 @@ smart_open
 rouge
 matplotlib
 sumy
+pandas

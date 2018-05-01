@@ -20,7 +20,7 @@ else:
     exit(1)
 
 
-fig = plt.figure(1, figsize=(10, 6))
+fig = plt.figure(1, figsize=(10, 4))
 
 nbins = np.linspace(0, 2000, 100)
 
@@ -49,15 +49,16 @@ ds = np.std(s)
 ms = np.mean(s)
 print('Summary: mu={:4f} sigma={:4f}'.format(ms, ds))
 ys = mlab.normpdf(bins, ms, ds)
-plt.plot(bins, ys, 'g--')
+plt.plot(bins, ys, 'g--', label='Normal line')
 
 # plt.subplots_adjust(left=0.15)
 
 plt.xlabel('Document Length (Tokens)')
 plt.ylabel('Frequency')
+plt.legend()
 
 # Tweak spacing to prevent clipping of ylabel
 plt.tight_layout()
 # plt.show()
-plt.savefig('histogram.svg')
+plt.savefig('histogram.pdf')
 
