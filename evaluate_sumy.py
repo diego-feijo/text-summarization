@@ -21,19 +21,28 @@ GROWTH_SIZE = 10
 # 37 linhas por pagina
 # 10 palavras por linha
 
+# def target_size(words):
+#     if words < 600:
+#         return MIN_SIZE
+#     elif words < 1200:
+#         return MIN_SIZE + 1 * GROWTH_SIZE
+#     elif words < 3000:
+#         return MIN_SIZE + 2 * GROWTH_SIZE
+#     elif words < 9000:
+#         return MIN_SIZE + 3 * GROWTH_SIZE
+#     elif words < 18000:
+#         return MIN_SIZE + 4 * GROWTH_SIZE
+#     else:
+#         return MIN_SIZE + 5 * GROWTH_SIZE
 def target_size(words):
-    if words < 600:
+    if words < 3000:
         return MIN_SIZE
-    elif words < 1200:
-        return MIN_SIZE + 1 * GROWTH_SIZE
-    elif words < 3000:
-        return MIN_SIZE + 2 * GROWTH_SIZE
     elif words < 9000:
-        return MIN_SIZE + 3 * GROWTH_SIZE
+        return MIN_SIZE + 1
     elif words < 18000:
-        return MIN_SIZE + 4 * GROWTH_SIZE
+        return MIN_SIZE + 2
     else:
-        return MIN_SIZE + 5 * GROWTH_SIZE
+        return MIN_SIZE + 3
 
 
 base_dir = '/media/veracrypt1/doutorado/text-summarization'
@@ -60,7 +69,7 @@ rouge = Rouge()
 
 summarizers = {'Luhn': LuhnSummarizer(), \
                'LexRank': LexRankSummarizer(), \
-               'Lsa': LsaSummarizer(), \
+               # 'Lsa': LsaSummarizer(), \
                'TextRank': TextRankSummarizer(), \
                'Random' : RandomSummarizer(), \
                # 'KLSum': KLSummarizer(), \
@@ -80,7 +89,7 @@ for doc in std_docs:
     x.append(words)
 
 
-for size in [60, 80, 100, 140, 200, 260]:
+for size in [1, 2, 3, 4]:
     MIN_SIZE = size
     for name, summarizer in summarizers.items():
         summarized_docs = []
@@ -97,14 +106,15 @@ for size in [60, 80, 100, 140, 200, 260]:
                 #     logger.info('Docs summarized [{}/{}]'.format(i, total))
                 text_doc = ' . '.join([' '.join(line) for line in doc])
                 parser = PlaintextParser.from_string(text_doc, Tokenizer('portuguese'))
-                summary = summarizer(parser.document, sentences_count=100)
+                summary = summarizer(parser.document, sentences_count=target_size(x[i]))
                 final_sum = ''
                 summary_words = 0
-                guess_size = target_size(x[i])
+                # guess_size = target_size(x[i])
+                # guess_size = size
                 for sentence in summary:
                     words_in_sentence = len(nltk.word_tokenize(sentence._text, language='portuguese'))
-                    if abs(guess_size - summary_words - words_in_sentence) > abs(guess_size - summary_words):
-                        break
+                    # if abs(guess_size - summary_words - words_in_sentence) > abs(guess_size - summary_words):
+                    #     break
                     summary_words += words_in_sentence
                     final_sum = ' '.join([final_sum, sentence._text])
                 # logger.debug('pred_sum: {} ref_sum: {}'.format(summary_words, sum([len(line) for line in std_sums[i]])))

@@ -62,40 +62,52 @@ for doc in std_docs:
     x.append(words)
 
 
-for size in [60]:
+for size in [120, 140, 160]:
     MIN_SIZE = size
 
     summarized_docs = []
+    dif_pred_sum = 0
     if os.path.isfile(base_dir + '/summarized_docs_gensim_{}.dump'.format(size)):
         logger.info('Loading summarized docs')
         with open(base_dir + '/summarized_docs_gensim_{}.dump'.format(size), mode='rb') as f:
             summarized_docs = pickle.load(f)
     else:
-        logger.info('Started summarizing docs')
+        # logger.info('Started summarizing docs')
         total = len(std_docs)
-        dif_pred_sum = 0
         dif_sum = 0
         for i, doc in enumerate(std_docs):
             text_doc = ' . '.join([' '.join(line) for line in doc])
 
-            if i % 1000 == 0:
-                logger.info('Docs summarized [{}/{}]'.format(i, total))
-            guess_size = target_size(x[i])
+            # if i % 1000 == 0:
+            #     logger.info('Docs summarized [{}/{}]'.format(i, total))
+            # guess_size = target_size(x[i])
+            guess_size = size
             text_predicted = summarize(text_doc, word_count=guess_size)
-            dif_pred_sum += abs(len(nltk.word_tokenize(text_predicted, language='portuguese')) - sum([len(line) for line in std_sums[i]]))
-            dif_sum += abs(len(nltk.word_tokenize(text_predicted, language='portuguese')) - guess_size)
+            words = nltk.word_tokenize(text_predicted, language='portuguese')
+            dif_pred_sum += abs(len(words) - sum([len(line) for line in std_sums[i]]))
+            dif_sum += abs(len(words) - guess_size)
             summarized_docs.append(text_predicted)
 
-        logger.warning('Dumping summarized docs - difsum: {}'.format(dif_sum))
-        logger.warning('Dumping summarized docs - error: {}'.format(dif_pred_sum))
+        # logger.warning('Dumping summarized docs - difsum: {}'.format(dif_sum))
+        # logger.warning('Dumping summarized docs - error: {}'.format(dif_pred_sum))
         with open(base_dir + '/summarized_docs_gensim_{}.dump'.format(size), mode='ab') as f:
             pickle.dump(summarized_docs, f)
 
     # hyps, refs = map(list, zip(*[[summarized_docs[i], text_sums[i]] for i in range(len(summarized_docs))]))
 
-    logger.info('Started calculating ROUGE scores')
+    # logger.info('Started calculating ROUGE scores')
 
-    score = rouge.get_scores(summarized_docs, text_sums, avg=True)
     # score = rouge.get_scores(hyps, refs, avg=True)
-    logger.warning('>>> SCORE gensim[{}]: {}'.format(size, score))
+    score = rouge.get_scores(summarized_docs, text_sums, avg=True)
+    print('{},{},{},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f}'.format('gensim', size, dif_pred_sum,
+                                                                                           score['rouge-1']['f'],
+                                                                                           score['rouge-1']['p'],
+                                                                                           score['rouge-2']['r'],
+                                                                                           score['rouge-2']['f'],
+                                                                                           score['rouge-2']['p'],
+                                                                                           score['rouge-1']['r'],
+                                                                                           score['rouge-l']['f'],
+                                                                                           score['rouge-l']['p'],
+                                                                                           score['rouge-l']['r']))
+    # logger.warning('>>> SCORE gensim[{}]: {}'.format(size, score))
     # SCORE: {'rouge-1': {'f': 0.3081883705874756, 'p': 0.22363907583044396, 'r': 0.5850080052303421}, 'rouge-2': {'f': 0.1322864044990957, 'p': 0.0973140241599619, 'r': 0.25320852105827263}, 'rouge-l': {'f': 0.12480459928485439, 'p': 0.11700386879088363, 'r': 0.33840273649013813}}
