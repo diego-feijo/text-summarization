@@ -3,84 +3,63 @@ import smart_open
 import logging
 import nltk
 import matplotlib.pyplot as plt
-import matplotlib.mlab as mlab
-import numpy as np
+import os
+import pandas as pd
+import pickle
 
 base_dir = '/media/veracrypt1/doutorado/text-summarization'
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-data = base_dir + '/complete.json'
+df = pd.DataFrame()
+dump = base_dir + '/statistics.dump'
 
-ementas = []
-acordaos = []
-relatorios = []
-votos = []
+if os.path.isfile(dump):
+    logger.info('Loading counts')
+    with open(dump, mode='rb') as f:
+        df = pickle.load(f)
+else:
+    logger.info('Computing counts')
+    ementas_count = []
+    acordaos_count = []
+    relatorios_count = []
+    votos_count = []
+    full_count = []
+    data = base_dir + '/complete.json'
+    for line in smart_open.smart_open(data):
+        obj = json.loads(line, encoding='utf8')
 
-total = 0
+        acordao_count = len(nltk.word_tokenize(obj['acordao'], language='portuguese'))
+        acordaos_count.append(acordao_count)
 
-for line in smart_open.smart_open(data):
-    obj = json.loads(line, encoding='utf8')
-    ementa_count = len(obj['ementa'].split(' '))
-    total += ementa_count
-    ementas.append(ementa_count)
-    acordao_count = len(obj['acordao'].split(' '))
-    total += acordao_count
-    acordaos.append(acordao_count)
-    relatorio_count = len(obj['relatorio'].split(' '))
-    total += relatorio_count
-    relatorios.append(relatorio_count)
-    voto_count = len(obj['voto'].split(' '))
-    total += voto_count
-    votos.append(voto_count)
+        relatorio_count = len(nltk.word_tokenize(obj['relatorio'], language='portuguese'))
+        relatorios_count.append(relatorio_count)
 
-for section in [ementas, acordaos, relatorios, votos]:
-    mean = np.mean(section)
-    sigma = np.std(section)
-    print('mean={:.4f} std={:.4f}'.format(mean, sigma))
+        voto_count = len(nltk.word_tokenize(obj['voto'], language='portuguese'))
+        votos_count.append(voto_count)
 
+        full_count.append(acordao_count + relatorio_count + voto_count)
 
-fig = plt.figure(1, figsize=(10,4))
+        ementa_count = len(nltk.word_tokenize(obj['ementa'], language='portuguese'))
+        ementas_count.append(ementa_count)
 
-# nbins = np.linspace(0, 7000, 500)
-# # nbins = 'auto'
-# legends = ["Relatório", "Voto", "Acórdão", "Ementa"]
-#
-# for i, mlist in enumerate([relatorios, votos, acordaos, sums]):
-#     x = []
-#     for doc in mlist:
-#         words = 0
-#         for line in doc:
-#             words += len(line)
-#         print(words)
-#         x.append(words)
-#
-#     print(x)
-#     n, bins, patches = plt.hist(x, nbins, alpha=0.5, label=legends[i])
-#     mx = np.mean(x)
-#     dx = np.std(x)
-#     print('Full content: mu={:4f} sigma={:4f}'.format(mx, dx))
-#     # ys = mlab.normpdf(bins, mx, dx)
-#     # plt.plot(bins, ys, label='Normal line {}'.format(legends[i]))
-#
-# plt.xlabel('Document Length (Tokens)')
-# plt.ylabel('Frequency')
-# plt.legend()
-#
-# # Tweak spacing to prevent clipping of ylabel
-# plt.tight_layout()
-# plt.show()
-# # plt.savefig('histogram2.pdf')
+    d = {'ementas': ementas_count, 'acordaos': acordaos_count, 'relatorios': relatorios_count, 'votos': votos_count, 'full': full_count}
+    df = pd.DataFrame(data=d)
 
+    logger.info('Dumping counts')
+    with open(dump, mode='ab') as f:
+        pickle.dump(df, f)
 
-data_to_plot = [ementas, acordaos, relatorios, votos]
-ax  = fig.add_subplot(111)
+df_ementa_full = df[['ementas', 'full']]
+print(df_ementa_full)
+corr = df_ementa_full.corr(method='spearman')
+print(corr)
 
-bp = ax.boxplot(data_to_plot)
-ax.set_xticklabels(['Ementa', 'Acórdão', 'Relatório', 'Voto'])
-
-print('Total words: {}'.format(total))
-
-# plt.show()
-plt.savefig('boxplot1.pdf')
+fig, ax = plt.subplots(figsize=(10,5))
+ax.plot('ementas', 'full', data=df_ementa_full, linestyle='none', marker='o', markersize=0.7)
+plt.xlim(0, 1000)
+plt.ylim(0, 7500)
+plt.xlabel('summary length')
+plt.ylabel('document length')
+plt.show()
