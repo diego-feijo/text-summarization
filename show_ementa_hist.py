@@ -20,7 +20,7 @@ else:
     exit(1)
 
 
-fig = plt.figure(1, figsize=(10, 4))
+fig = plt.figure(1, figsize=(10, 3))
 
 nbins = np.linspace(0, 2000, 100)
 
